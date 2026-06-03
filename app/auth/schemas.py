@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, AliasPath
 from app.auth.models import UserGroupEnum, GenderEnum
 
 
@@ -17,20 +17,26 @@ class UserProfileResponse(BaseModel):
 
 
 class UserCreate(BaseModel):
-    email: EmailStr = Field(..., description="Унікальний email користувача")
-    password: str = Field(..., min_length=8, description="Пароль (мінімум 8 знаків)")
+    email: EmailStr = Field(..., description="Unique user email")
+    password: str = Field(
+        ..., min_length=8, description="Password (minimum 8 characters)"
+    )
 
     @field_validator("password")
     @classmethod
     def validate_password_complexity(cls, value: str) -> str:
         if not re.search(r"[A-Z]", value):
-            raise ValueError("Пароль має містити хоча б одну велику літеру (A-Z).")
+            raise ValueError(
+                "Password must contain at least one uppercase letter (A-Z)."
+            )
         if not re.search(r"[a-z]", value):
-            raise ValueError("Пароль має містити хоча б одну малу літеру (a-z).")
+            raise ValueError(
+                "Password must contain at least one lowercase letter (a-z)."
+            )
         if not re.search(r"[0-9]", value):
-            raise ValueError("Пароль має містити хоча б одну цифру (0-9).")
+            raise ValueError("Password must contain at least one digit (0-9).")
         if not re.search(r"[!@#$%^&*(),.?\":{}|<>_]", value):
-            raise ValueError("Пароль має містити хоча б один спеціальний символ.")
+            raise ValueError("Password must contain at least one special character.")
         return value
 
 
@@ -39,9 +45,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     is_active: bool
     created_at: datetime
-    role: UserGroupEnum = Field(
-        default=UserGroupEnum.USER, validation_alias="group_name"
-    )
+    role: UserGroupEnum = Field(validation_alias=AliasPath("group", "name"))
     profile: UserProfileResponse | None = None
 
     class Config:
