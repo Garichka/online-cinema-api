@@ -51,6 +51,8 @@ class AuthService:
         await db.commit()
         await db.refresh(new_user)
 
-        # TODO: Here will be the Celery task call to send email: send_activation_email.delay(...)
+        from app.worker import send_activation_email
+
+        send_activation_email.delay(new_user.email, token_str)
 
         return new_user
