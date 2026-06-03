@@ -4,9 +4,9 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.auth.models import User, UserProfile, ActivationToken
-from app.auth.schemas import UserCreate
-from app.core.security import get_password_hash
+from app.auth.models import User, UserProfile, ActivationToken, RefreshToken
+from app.auth.schemas import UserCreate, UserLogin
+from app.core.security import get_password_hash, verify_password
 
 
 class AuthService:
@@ -56,3 +56,43 @@ class AuthService:
         send_activation_email.delay(new_user.email, token_str)
 
         return new_user
+
+    @classmethod
+    async def authenticate_user(cls, db: AsyncSession, user_data: UserLogin) -> User:
+        user = await cls.get_user_by_email(db, user_data.email)
+
+        if not user or not verify_password(user_data.password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Please activate your account using the link sent to your email.",
+            )
+
+        return user
+
+    @staticmethod
+    async def create_user_tokens(db: AsyncSession, user_id: int) -> dict:
+        from app.core.security import create_access_token, create_refresh_token
+
+        access_token = create_access_token(data={"sub": str(user_id)})
+        refresh_token_str = create_refresh_token(data={"sub": str(user_id)})
+
+        from app.core.config import settings
+
+        expires_at = datetime.now(timezone.utc) + timedelta(
+            days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+        )
+
+        db_refresh_token = RefreshToken(
+            user_id=user_id, token=refresh_token_str, expires_at=expires_at
+        )
+        db.add(db_refresh_token)
+        await db.commit()
+
+        return {"access_token": access_token, "refresh_token": refresh_token_str}

@@ -1,3 +1,4 @@
+import jwt
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,9 +6,16 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.auth.schemas import UserCreate, UserResponse
+from app.auth.schemas import (
+    UserCreate,
+    UserResponse,
+    UserLogin,
+    TokenResponse,
+    TokenRefreshRequest,
+)
 from app.auth.services import AuthService
-from app.auth.models import ActivationToken, User
+from app.auth.models import ActivationToken, User, RefreshToken
+from app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -65,3 +73,52 @@ async def activate_account(
         "status": "success",
         "message": "Account successfully activated! You can now log in.",
     }
+
+
+@router.post("/login", response_model=TokenResponse)
+async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
+    user = await AuthService.authenticate_user(db, user_data)
+
+    tokens = await AuthService.create_user_tokens(db, user.id)
+    return tokens
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_tokens(
+    payload: TokenRefreshRequest, db: AsyncSession = Depends(get_db)
+):
+    try:
+        token_data = jwt.decode(
+            payload.refresh_token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+
+        if token_data.get("type") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type.",
+            )
+
+        user_id = int(token_data.get("sub"))
+    except (jwt.PyJWTError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token.",
+        )
+
+    stmt = select(RefreshToken).where(RefreshToken.token == payload.refresh_token)
+    result = await db.execute(stmt)
+    db_token = result.scalar_one_or_none()
+
+    if not db_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is missing or has already been used.",
+        )
+
+    await db.delete(db_token)
+    await db.commit()
+
+    new_tokens = await AuthService.create_user_tokens(db, user_id)
+    return new_tokens
