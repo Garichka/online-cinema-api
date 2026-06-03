@@ -10,6 +10,7 @@ from alembic import context
 from app.core.config import settings
 from app.core.database import Base
 from app.auth import models as auth_models
+from app.movies import models as movies_models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
