@@ -66,15 +66,11 @@ class MovieService:
 
     @staticmethod
     async def get_movies_list(
-        db: AsyncSession,
-        skip: int = 0,
-        limit: int = 20,
-        category_id: int | None = None
+        db: AsyncSession, skip: int = 0, limit: int = 20, category_id: int | None = None
     ) -> list[Movie]:
 
         stmt = select(Movie).options(
-            selectinload(Movie.category),
-            selectinload(Movie.tags)
+            selectinload(Movie.category), selectinload(Movie.tags)
         )
 
         if category_id:
@@ -87,9 +83,7 @@ class MovieService:
 
     @staticmethod
     async def update_movie(
-        db: AsyncSession,
-        movie_id: int,
-        update_data: MovieUpdate
+        db: AsyncSession, movie_id: int, update_data: MovieUpdate
     ) -> Movie:
 
         movie = await MovieService.get_movie_by_id(db, movie_id)
