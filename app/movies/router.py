@@ -8,8 +8,12 @@ from app.movies.schemas import (
     MovieUpdate,
     MovieResponse,
     MovieShortResponse,
+    TagResponse,
+    TagCreate,
+    CategoryResponse,
+    CategoryCreate,
 )
-from app.movies.services import MovieService
+from app.movies.services import MovieService, TagService, CategoryService
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -95,3 +99,57 @@ async def delete_movie(
     db: AsyncSession = Depends(get_db),
 ):
     await MovieService.delete_movie(db=db, movie_id=movie_id)
+
+
+@router.post(
+    "/categories",
+    response_model=CategoryResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[admin_permission],
+    summary="Create category (Admin only)",
+)
+async def create_category(
+    category_data: CategoryCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    return await CategoryService.create_category(
+        db=db,
+        category_data=category_data,
+    )
+
+
+@router.get(
+    "/categories",
+    response_model=list[CategoryResponse],
+    dependencies=[any_user_permission],
+    summary="Get all categories",
+)
+async def get_categories(db: AsyncSession = Depends(get_db)):
+    return await CategoryService.get_all_categories(db=db)
+
+
+@router.post(
+    "/tags",
+    response_model=TagResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[admin_permission],
+    summary="Create tag (Admin only)",
+)
+async def create_tag(
+    tag_data: TagCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    return await TagService.create_tag(
+        db=db,
+        tag_data=tag_data,
+    )
+
+
+@router.get(
+    "/tags",
+    response_model=list[TagResponse],
+    dependencies=[any_user_permission],
+    summary="Get all tags",
+)
+async def get_tags(db: AsyncSession = Depends(get_db)):
+    return await TagService.get_all_tags(db=db)

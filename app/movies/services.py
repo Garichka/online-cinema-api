@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from app.movies.models import Movie, Category, Tag
-from app.movies.schemas import MovieCreate, MovieUpdate
+from app.movies.schemas import MovieCreate, MovieUpdate, CategoryCreate, TagCreate
 
 
 class MovieService:
@@ -145,3 +145,59 @@ class MovieService:
 
         await db.delete(movie)
         await db.commit()
+
+
+class CategoryService:
+    @staticmethod
+    async def create_category(
+        db: AsyncSession, category_data: CategoryCreate
+    ) -> Category:
+
+        stmt = select(Category).where(Category.name == category_data.name)
+        res = await db.execute(stmt)
+
+        if res.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Category with name '{category_data.name}' already exists.",
+            )
+
+        new_category = Category(**category_data.model_dump())
+        db.add(new_category)
+        await db.commit()
+        await db.refresh(new_category)
+        return new_category
+
+    @staticmethod
+    async def get_all_categories(db: AsyncSession) -> list[Category]:
+
+        stmt = select(Category).order_by(Category.name.asc())
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
+
+class TagService:
+    @staticmethod
+    async def create_tag(db: AsyncSession, tag_data: TagCreate) -> Tag:
+
+        stmt = select(Tag).where(Tag.name == tag_data.name)
+        res = await db.execute(stmt)
+
+        if res.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Tag with name '{tag_data.name}' already exists.",
+            )
+
+        new_tag = Tag(**tag_data.model_dump())
+        db.add(new_tag)
+        await db.commit()
+        await db.refresh(new_tag)
+        return new_tag
+
+    @staticmethod
+    async def get_all_tags(db: AsyncSession) -> list[Tag]:
+
+        stmt = select(Tag).order_by(Tag.name.asc())
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
