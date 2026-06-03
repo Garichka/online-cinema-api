@@ -6,18 +6,19 @@ from fastapi.openapi.utils import get_openapi
 
 from app.core.config import settings
 from app.auth.router import router as auth_router
+from app.movies.router import router as movies_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Backend for the online cinema platform (FLEX level)",
+    description="Backend for the online cinema",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
 )
 
 app.include_router(auth_router, prefix=settings.API_V1_STR)
-
+app.include_router(movies_router, prefix=settings.API_V1_STR)
 
 security_basic = HTTPBasic()
 
