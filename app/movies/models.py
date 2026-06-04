@@ -1,5 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
+from typing import TYPE_CHECKING
+
 from sqlalchemy import (
     ForeignKey,
     String,
@@ -14,7 +16,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
-from app.reviews.models import Review
+
+if TYPE_CHECKING:
+    from app.reviews.models import Review
 
 movie_tag_association = Table(
     "movie_tag_association",
@@ -95,8 +99,11 @@ class Movie(Base):
         passive_deletes=True,
     )
 
-    reviews: Mapped[list[Review]] = relationship(
-        "Review", back_populates="movie", cascade="all, delete-orphan"
+    reviews: Mapped[list["Review"]] = relationship(
+        "Review",
+        back_populates="movie",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     __table_args__ = (
