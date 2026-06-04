@@ -14,6 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
+from app.reviews.models import Review
 
 movie_tag_association = Table(
     "movie_tag_association",
@@ -92,6 +93,10 @@ class Movie(Base):
         secondary=movie_tag_association,
         back_populates="movies",
         passive_deletes=True,
+    )
+
+    reviews: Mapped[list[Review]] = relationship(
+        "Review", back_populates="movie", cascade="all, delete-orphan"
     )
 
     __table_args__ = (
