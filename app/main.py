@@ -7,6 +7,7 @@ from fastapi.openapi.utils import get_openapi
 from app.core.config import settings
 from app.auth.router import router as auth_router
 from app.movies.router import router as movies_router
+from app.reviews.router import router as reviews_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -19,6 +20,7 @@ app = FastAPI(
 
 app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(movies_router, prefix=settings.API_V1_STR)
+app.include_router(reviews_router, prefix=settings.API_V1_STR)
 
 security_basic = HTTPBasic()
 
