@@ -64,6 +64,9 @@ class User(Base):
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    is_premium: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
 
 
 class UserProfile(Base):
