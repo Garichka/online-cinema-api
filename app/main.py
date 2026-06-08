@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.auth.router import router as auth_router
 from app.movies.router import router as movies_router
 from app.reviews.router import router as reviews_router
+from app.watchlist.router import router as watchlist_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -21,6 +22,7 @@ app = FastAPI(
 app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(movies_router, prefix=settings.API_V1_STR)
 app.include_router(reviews_router, prefix=settings.API_V1_STR)
+app.include_router(watchlist_router, prefix=settings.API_V1_STR)
 
 security_basic = HTTPBasic()
 
