@@ -1,8 +1,13 @@
 import secrets
+from contextlib import asynccontextmanager
+
+import aioredis
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
 
 from app.core.config import settings
 from app.auth.router import router as auth_router
@@ -27,6 +32,35 @@ app.include_router(watchlist_router, prefix=settings.API_V1_STR)
 app.include_router(payments_router, prefix=settings.API_V1_STR)
 
 security_basic = HTTPBasic()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+
+    redis_client = aioredis.from_url(
+        f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}",
+        encoding="utf8",
+        decode_responses=False,
+    )
+
+    FastAPICache.init(
+        RedisBackend(redis_client),
+        prefix="cinema-cache",
+    )
+
+    print("🚀 [REDIS] Successfully connected and initialized for caching.")
+
+    yield
+
+    await redis_client.close()
+
+    print("🛑 [REDIS] Redis connection closed.")
+
+
+app = FastAPI(
+    title="Online Cinema API",
+    lifespan=lifespan,
+)
 
 
 def verify_docs_credentials(

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, status
+from fastapi_cache.decorator import cache
 
 from app.core.database import get_db
 from app.auth.dependencies import get_current_user, RoleChecker
@@ -153,3 +154,21 @@ async def create_tag(
 )
 async def get_tags(db: AsyncSession = Depends(get_db)):
     return await TagService.get_all_tags(db=db)
+
+
+@router.get(
+    "/",
+    response_model=list[MovieResponse],
+    summary="Get a list of all movies",
+)
+@cache(expire=60)
+async def get_movies(
+    skip: int = 0,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+):
+    return await MovieService.get_all_movies(
+        db=db,
+        skip=skip,
+        limit=limit,
+    )
