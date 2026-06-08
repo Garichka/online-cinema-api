@@ -14,6 +14,7 @@ from app.auth import models as auth_models  # noqa
 from app.movies import models as movies_models  # noqa
 from app.reviews import models as reviews_models  # noqa
 from app.watchlist import models as watchlist_models  # noqa
+from app.payments import models as payments_models  # noqa
 
 config = context.config
 
