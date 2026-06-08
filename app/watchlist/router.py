@@ -7,61 +7,31 @@ from app.auth.models import User
 from app.watchlist.schemas import WatchlistCreate, WatchlistResponse
 from app.watchlist.services import WatchlistService
 
-router = APIRouter(
-    prefix="/watchlist",
-    tags=["Watchlist"],
-)
+router = APIRouter(prefix="/watchlist", tags=["Watchlist"])
 
 
-@router.post(
-    "/",
-    response_model=WatchlistResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Add a movie to the watchlist",
-)
+@router.post("/", response_model=WatchlistResponse, status_code=status.HTTP_201_CREATED)
 async def add_to_watchlist(
     data: WatchlistCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await WatchlistService.add_to_watchlist(
-        db=db,
-        user_id=current_user.id,
-        data=data,
-    )
+    item = await WatchlistService.add_to_watchlist(db, current_user.id, data)
+    return WatchlistResponse.model_validate(item)
 
 
-@router.get(
-    "/",
-    response_model=list[WatchlistResponse],
-    summary="Get the current user's watchlist",
-)
-async def get_my_watchlist(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+@router.get("/", response_model=list[WatchlistResponse])
+async def get_watchlist(
+    db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
-
-    return await WatchlistService.get_user_watchlist(
-        db=db,
-        user_id=current_user.id,
-    )
+    items = await WatchlistService.get_user_watchlist(db, current_user.id)
+    return [WatchlistResponse.model_validate(i) for i in items]
 
 
-@router.delete(
-    "/{movie_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Remove a movie from the watchlist",
-)
-async def remove_from_watchlist(
+@router.delete("/{movie_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove(
     movie_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-
-    await WatchlistService.remove_from_watchlist(
-        db=db,
-        user_id=current_user.id,
-        movie_id=movie_id,
-    )
-
-    return None
+    await WatchlistService.remove_from_watchlist(db, current_user.id, movie_id)

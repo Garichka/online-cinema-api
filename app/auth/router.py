@@ -21,19 +21,32 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post(
-    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+    "/register",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
+
     new_user = await AuthService.register_new_user(db, user_data)
 
-    stmt = select(User).options(selectinload(User.group)).where(User.id == new_user.id)
+    stmt = (
+        select(User)
+        .options(
+            selectinload(User.group),
+            selectinload(User.profile),
+        )
+        .where(User.id == new_user.id)
+    )
+
     result = await db.execute(stmt)
-    return result.scalar_one()
+    user = result.scalar_one()
+
+    return user
 
 
 @router.get("/activate", status_code=status.HTTP_200_OK)
 async def activate_account(
-    token: str = Query(..., description="Activation token from email"),
+    token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
 
@@ -43,82 +56,57 @@ async def activate_account(
 
     if not db_token:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired activation token.",
+            status_code=400, detail="Invalid or expired activation token."
         )
 
     if db_token.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
         await db.delete(db_token)
         await db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token has expired. Please register again.",
-        )
+        raise HTTPException(status_code=400, detail="Token has expired.")
 
     user_stmt = select(User).where(User.id == db_token.user_id)
-    user_result = await db.execute(user_stmt)
-    user = user_result.scalar_one_or_none()
+    user = (await db.execute(user_stmt)).scalar_one_or_none()
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
-        )
+        raise HTTPException(status_code=404, detail="User not found.")
 
     user.is_active = True
-
     await db.delete(db_token)
     await db.commit()
 
-    return {
-        "status": "success",
-        "message": "Account successfully activated! You can now log in.",
-    }
+    return {"status": "success", "message": "Account activated"}
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
     user = await AuthService.authenticate_user(db, user_data)
-
-    tokens = await AuthService.create_user_tokens(db, user.id)
-    return tokens
+    return await AuthService.create_user_tokens(db, user.id)
 
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_tokens(
-    payload: TokenRefreshRequest, db: AsyncSession = Depends(get_db)
+    payload: TokenRefreshRequest,
+    db: AsyncSession = Depends(get_db),
 ):
-    try:
-        token_data = jwt.decode(
-            payload.refresh_token,
-            settings.JWT_SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM],
-        )
 
-        if token_data.get("type") != "refresh":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type.",
-            )
+    token_data = jwt.decode(
+        payload.refresh_token,
+        settings.JWT_SECRET_KEY,
+        algorithms=[settings.JWT_ALGORITHM],
+    )
 
-        user_id = int(token_data.get("sub"))
-    except (jwt.PyJWTError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token.",
-        )
+    if token_data.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Invalid token type.")
+
+    user_id = int(token_data.get("sub"))
 
     stmt = select(RefreshToken).where(RefreshToken.token == payload.refresh_token)
-    result = await db.execute(stmt)
-    db_token = result.scalar_one_or_none()
+    db_token = (await db.execute(stmt)).scalar_one_or_none()
 
     if not db_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token is missing or has already been used.",
-        )
+        raise HTTPException(status_code=401, detail="Invalid refresh token.")
 
     await db.delete(db_token)
     await db.commit()
 
-    new_tokens = await AuthService.create_user_tokens(db, user_id)
-    return new_tokens
+    return await AuthService.create_user_tokens(db, user_id)

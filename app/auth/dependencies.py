@@ -18,19 +18,23 @@ async def get_current_user(
 ) -> User:
 
     token = credentials.credentials
+
     try:
         payload = jwt.decode(
-            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
         )
 
         if payload.get("type") != "access":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type. Access token expected.",
+                detail="Invalid token type.",
             )
 
         user_id = int(payload.get("sub"))
-    except (jwt.PyJWTError, ValueError):
+
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token.",
@@ -38,18 +42,13 @@ async def get_current_user(
         )
 
     stmt = select(User).options(selectinload(User.group)).where(User.id == user_id)
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
+    user = (await db.execute(stmt)).scalar_one_or_none()
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found."
-        )
+        raise HTTPException(status_code=401, detail="User not found.")
 
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Account is not activated."
-        )
+        raise HTTPException(status_code=403, detail="Account is not activated.")
 
     return user
 
@@ -62,6 +61,6 @@ class RoleChecker:
         if current_user.group.name not in self.allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to perform this operation (required access level).",
+                detail="You do not have permission to perform this operation.",
             )
         return current_user

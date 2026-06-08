@@ -1,6 +1,8 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
+from sqlalchemy import desc
 
 from app.watchlist.models import Watchlist
 from app.movies.models import Movie
@@ -14,6 +16,7 @@ class WatchlistService:
         user_id: int,
         data: WatchlistCreate,
     ) -> Watchlist:
+
         movie_stmt = select(Movie).where(Movie.id == data.movie_id)
         movie_res = await db.execute(movie_stmt)
 
@@ -52,6 +55,7 @@ class WatchlistService:
         user_id: int,
         movie_id: int,
     ) -> None:
+
         stmt = select(Watchlist).where(
             Watchlist.user_id == user_id,
             Watchlist.movie_id == movie_id,
@@ -73,10 +77,12 @@ class WatchlistService:
         db: AsyncSession,
         user_id: int,
     ) -> list[Watchlist]:
+
         stmt = (
             select(Watchlist)
+            .options(selectinload(Watchlist.movie))
             .where(Watchlist.user_id == user_id)
-            .order_by(Watchlist.added_at.desc())
+            .order_by(desc(Watchlist.id))
         )
 
         res = await db.execute(stmt)

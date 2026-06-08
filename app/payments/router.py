@@ -11,8 +11,8 @@ from app.payments.schemas import (
     CheckoutSessionResponse,
 )
 from app.payments.services import PaymentService
-from core.config import settings
-from payments.models import Payment
+from app.core.config import settings
+from app.payments.models import Payment
 from app.tasks.email_tasks import send_premium_welcome_email
 
 router = APIRouter(

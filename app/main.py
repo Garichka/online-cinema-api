@@ -1,7 +1,7 @@
 import secrets
 from contextlib import asynccontextmanager
 
-import aioredis
+import redis.asyncio as redis
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -10,34 +10,19 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 
 from app.core.config import settings
+
 from app.auth.router import router as auth_router
 from app.movies.router import router as movies_router
 from app.reviews.router import router as reviews_router
 from app.watchlist.router import router as watchlist_router
 from app.payments.router import router as payments_router
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    description="Backend for the online cinema",
-    docs_url=None,
-    redoc_url=None,
-    openapi_url=None,
-)
-
-app.include_router(auth_router, prefix=settings.API_V1_STR)
-app.include_router(movies_router, prefix=settings.API_V1_STR)
-app.include_router(reviews_router, prefix=settings.API_V1_STR)
-app.include_router(watchlist_router, prefix=settings.API_V1_STR)
-app.include_router(payments_router, prefix=settings.API_V1_STR)
-
 security_basic = HTTPBasic()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
-    redis_client = aioredis.from_url(
+    redis_client = redis.from_url(
         f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}",
         encoding="utf8",
         decode_responses=False,
@@ -48,21 +33,37 @@ async def lifespan(app: FastAPI):
         prefix="cinema-cache",
     )
 
-    print("🚀 [REDIS] Successfully connected and initialized for caching.")
+    print("🚀 Redis initialized")
 
     yield
 
     await redis_client.close()
-
-    print("🛑 [REDIS] Redis connection closed.")
+    print("🛑 Redis closed")
 
 
 app = FastAPI(
-    title="Online Cinema API",
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION,
+    description="Backend for the online cinema",
     lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
+# ======================
+# ROUTERS
+# ======================
+app.include_router(auth_router)
+app.include_router(movies_router)
+app.include_router(reviews_router)
+app.include_router(watchlist_router)
+app.include_router(payments_router)
 
+
+# ======================
+# BASIC AUTH FOR DOCS
+# ======================
 def verify_docs_credentials(
     credentials: HTTPBasicCredentials = Depends(security_basic),
 ):
@@ -74,14 +75,18 @@ def verify_docs_credentials(
     if not (correct_username and correct_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid documentation username or password.",
+            detail="Invalid documentation credentials",
             headers={"WWW-Authenticate": "Basic"},
         )
+
     return credentials.username
 
 
+# ======================
+# DOCS
+# ======================
 @app.get("/docs", include_in_schema=False)
-async def get_documentation(username: str = Depends(verify_docs_credentials)):
+async def docs(username: str = Depends(verify_docs_credentials)):
     return get_swagger_ui_html(
         openapi_url="/openapi.json",
         title=f"{settings.PROJECT_NAME} - Swagger UI",
@@ -89,15 +94,18 @@ async def get_documentation(username: str = Depends(verify_docs_credentials)):
 
 
 @app.get("/openapi.json", include_in_schema=False)
-async def get_open_api_endpoint(username: str = Depends(verify_docs_credentials)):
+async def openapi(username: str = Depends(verify_docs_credentials)):
     return get_openapi(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
-        description=app.description,
+        description="Backend for the online cinema",
         routes=app.routes,
     )
 
 
+# ======================
+# HEALTHCHECK
+# ======================
 @app.get("/healthcheck", tags=["Health"])
 async def health_check():
     return {"status": "healthy"}
