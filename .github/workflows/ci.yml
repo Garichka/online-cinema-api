@@ -60,8 +60,15 @@ jobs:
         env:
           DB_HOST: localhost
           REDIS_HOST: localhost
+
           JWT_SECRET_KEY: ci_super_secret_test_key_for_github_actions
           STRIPE_SECRET_KEY: sk_test_mock
           STRIPE_WEBHOOK_SECRET: whsec_mock
+
+          DOCS_USER: ci_admin
+          DOCS_PASSWORD: ci_secure_password_123
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_password
+          POSTGRES_DB: cinema_test_db
         run: |
           poetry run pytest
