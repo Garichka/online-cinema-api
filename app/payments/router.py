@@ -13,6 +13,7 @@ from app.payments.schemas import (
 from app.payments.services import PaymentService
 from core.config import settings
 from payments.models import Payment
+from app.tasks.email_tasks import send_premium_welcome_email
 
 router = APIRouter(
     prefix="/payments",
@@ -106,7 +107,7 @@ async def stripe_webhook(
 
             if user:
                 user.is_premium = True
-
+                send_premium_welcome_email.delay(user.email)
             await db.commit()
 
             print("=" * 57)
